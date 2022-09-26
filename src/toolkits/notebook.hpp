@@ -22,16 +22,9 @@
 
 #ifdef NOTEBOOK_TOOLKIT_ENABLED
 
-#include <memory>
-#include <mutex>
-
 #include <GLFW/glfw3.h>
-#include <nlohmann/json.hpp>
 #include <octave/graphics-toolkit.h>
 #include <octave/interpreter.h>
-
-#include "opengl.hpp"
-#include "xeus-octave/config.hpp"
 
 namespace xeus_octave
 {

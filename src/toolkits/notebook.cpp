@@ -28,6 +28,7 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <ostream>
 #include <string>
@@ -47,9 +48,12 @@
 #endif
 #include <xtl/xbase64.hpp>
 
-#include "notebook.hpp"
-#include "plotstream.hpp"
+#include "xeus-octave/config.hpp"
 #include "xeus-octave/xinterpreter.hpp"
+
+#include "notebook.hpp"
+#include "opengl.hpp"
+#include "plotstream.hpp"
 
 namespace nl = nlohmann;
 namespace oc = octave;

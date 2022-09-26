@@ -22,6 +22,7 @@
 #include <complex>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <sstream>
 #include <string>
 
@@ -38,6 +39,8 @@
 #include <octave/utils.h>
 #include <octave/version.h>
 
+#include "xeus-octave/xinterpreter.hpp"
+
 #include "plotly.hpp"
 #include "plotstream.hpp"
 #include "tex2html.hpp"
@@ -47,6 +50,11 @@ namespace nl = nlohmann;
 
 namespace xeus_octave
 {
+
+plotly_graphics_toolkit::plotly_graphics_toolkit(octave::interpreter& interp) :
+  base_graphics_toolkit("plotly"), m_interpreter(interp)
+{
+}
 
 bool plotly_graphics_toolkit::initialize(oc::graphics_object const& go)
 {
@@ -61,487 +69,17 @@ bool plotly_graphics_toolkit::initialize(oc::graphics_object const& go)
   return false;
 }
 
-void plotly_graphics_toolkit::redraw_figure(oc::graphics_object const& go) const
+namespace
 {
-  int id = getPlotStream(go);
 
-  if (go.isa("figure"))
-  {
-    std::map<std::string, std::vector<unsigned long>> ids;
-    auto& figureProperties =
-      dynamic_cast<oc::figure::properties&>(oc::graphics_object(go).get_properties());
-    Matrix figurePosition = figureProperties.get_position().matrix_value();
-    nl::json plot, output;
-
-    // Setting margins to 0 because octave positions its axes considering
-    // the margins
-    plot["layout"]["margin"]["l"] = 0;
-    plot["layout"]["margin"]["r"] = 0;
-    plot["layout"]["margin"]["b"] = 0;
-    plot["layout"]["margin"]["t"] = 0;
-
-    // Setting width and height properties
-    plot["layout"]["width"] = figurePosition(2);
-    plot["layout"]["height"] = figurePosition(3);
-
-    // Tooltip on the closest point
-    plot["layout"]["hovermode"] = "closest";
-
-    // We draw manually the legend
-    plot["layout"]["showlegend"] = false;
-
-    // Background color
-    plot["layout"]["plot_bgcolor"] = "rgba(0,0,0,0)";
-
-    // Figures contain axes and hggroups (not implemented for now) as children
-    for (auto ax : children(go))
-      if (ax.isa("axes"))
-      {
-        auto& axisProperties = dynamic_cast<oc::axes::properties&>(ax.get_properties());
-#if OCTAVE_MAJOR_VERSION >= 6
-        auto xlabel = m_interpreter.get_gh_manager().get_object(axisProperties.get_xlabel());
-        auto ylabel = m_interpreter.get_gh_manager().get_object(axisProperties.get_ylabel());
-        auto zlabel = m_interpreter.get_gh_manager().get_object(axisProperties.get_ylabel());
-#else
-        auto xlabel = gh_manager::get_object(axisProperties.get_xlabel());
-        auto ylabel = gh_manager::get_object(axisProperties.get_ylabel());
-        auto zlabel = gh_manager::get_object(axisProperties.get_ylabel());
-#endif
-        auto& xlabelProperties = dynamic_cast<oc::text::properties&>(xlabel.get_properties());
-        auto& ylabelProperties = dynamic_cast<oc::text::properties&>(ylabel.get_properties());
-        auto& zlabelProperties = dynamic_cast<oc::text::properties&>(zlabel.get_properties());
-
-        Matrix axisPosition = axisProperties.get_position().matrix_value();
-        std::string axNumber = getObjectNumber(ax, ids);
-
-        bool isLegend = !ax.get("tag").isempty() && ax.get("tag").string_value() == "legend";
-
-        if (!ax.get("tag").isempty() && ax.get("tag").string_value() == "polaraxes")
-        {
-          std::string p = "polar" + axNumber;
-
-          // Setting domain, which is the position of the axis of the figure
-          // (percentage)
-          plot["layout"][p]["domain"]["x"] = {axisPosition(0), axisPosition(0) + axisPosition(2)};
-          plot["layout"][p]["domain"]["y"] = {axisPosition(1), axisPosition(1) + axisPosition(3)};
-
-          polarAxis(
-            plot["layout"][p]["radialaxis"],
-            axisProperties.get("rtick").matrix_value(),
-            axisProperties.get_fontsize()
-          );
-
-          polarAxis(
-            plot["layout"][p]["angularaxis"],
-            axisProperties.get("ttick").matrix_value(),
-            axisProperties.get_fontsize()
-          );
-        }
-        else if (axisProperties.get_is2D())
-        {
-          std::string x = "xaxis" + axNumber;
-          std::string y = "yaxis" + axNumber;
-
-          // Setting domain, which is the position of the axis of the figure
-          // (percentage)
-          plot["layout"][x]["domain"] = {axisPosition(0), axisPosition(0) + axisPosition(2)};
-          plot["layout"][y]["domain"] = {axisPosition(1), axisPosition(1) + axisPosition(3)};
-
-          axis(
-            plot["layout"][x],
-            axisProperties.is_visible(),
-            axisProperties.get_xscale(),
-            axisProperties.get_xaxislocation(),
-            axisProperties.get_xlim().matrix_value(),
-            axisProperties.xdir_is("reverse"),
-            axisProperties.is_box(),
-            axisProperties.get_linewidth(),
-            axisProperties.get_fontsize(),
-            axisProperties.get_xcolor_rgb(),
-            axisProperties.get_xtick().matrix_value(),
-            axisProperties.get_xticklabel().string_vector_value(),
-            axisProperties.get_xminortickvalues().matrix_value(),
-            axisProperties.get_xminortick() == "on",
-            axisProperties.get_tickdir(),
-            axisProperties.get_xticklabelrotation(),
-            axisProperties.get_ticklabelinterpreter(),
-            axisProperties.is_xgrid() || axisProperties.is_xminorgrid(),
-            axisProperties.get_gridcolor_rgb(),
-            axisProperties.get_gridalpha()
-          );
-
-          axis(
-            plot["layout"][y],
-            axisProperties.is_visible(),
-            axisProperties.get_yscale(),
-            axisProperties.get_yaxislocation(),
-            axisProperties.get_ylim().matrix_value(),
-            axisProperties.ydir_is("reverse"),
-            axisProperties.is_box(),
-            axisProperties.get_linewidth(),
-            axisProperties.get_fontsize(),
-            axisProperties.get_ycolor_rgb(),
-            axisProperties.get_ytick().matrix_value(),
-            axisProperties.get_yticklabel().string_vector_value(),
-            axisProperties.get_yminortickvalues().matrix_value(),
-            axisProperties.get_yminortick() == "on",
-            axisProperties.get_tickdir(),
-            axisProperties.get_yticklabelrotation(),
-            axisProperties.get_ticklabelinterpreter(),
-            axisProperties.is_ygrid() || axisProperties.is_yminorgrid(),
-            axisProperties.get_gridcolor_rgb(),
-            axisProperties.get_gridalpha()
-          );
-
-          if (xlabel && xlabel.isa("text"))
-            text(
-              plot["layout"][x]["title"],
-              xlabelProperties.get_string().string_value(),
-              xlabelProperties.get_interpreter(),
-              xlabelProperties.get_color_rgb(),
-              xlabelProperties.get_fontsize()
-            );
-
-          if (ylabel && ylabel.isa("text"))
-            text(
-              plot["layout"][y]["title"],
-              ylabelProperties.get_string().string_value(),
-              ylabelProperties.get_interpreter(),
-              ylabelProperties.get_color_rgb(),
-              ylabelProperties.get_fontsize()
-            );
-
-          // Anchoring each axis to the other
-          plot["layout"][x]["anchor"] = "y" + axNumber;
-          plot["layout"][y]["anchor"] = "x" + axNumber;
-
-          if (isLegend)
-          {
-            plot["layout"][x]["showspikes"] = false;
-            plot["layout"][y]["showspikes"] = false;
-            plot["layout"][x]["fixedrange"] = true;
-            plot["layout"][y]["fixedrange"] = true;
-          }
-        }
-        else
-        {
-          std::string s = "scene" + axNumber;
-
-          // Setting domain, which is the position of the axis of the figure
-          // (percentage)
-          plot["layout"][s]["domain"]["x"] = {axisPosition(0), axisPosition(0) + axisPosition(2)};
-          plot["layout"][s]["domain"]["y"] = {axisPosition(1), axisPosition(1) + axisPosition(3)};
-
-          axis(
-            plot["layout"][s]["xaxis"],
-            axisProperties.is_visible(),
-            axisProperties.get_xscale(),
-            axisProperties.get_xaxislocation(),
-            axisProperties.get_xlim().matrix_value(),
-            !axisProperties.xdir_is("reverse"),
-            axisProperties.is_box(),
-            axisProperties.get_linewidth() + 1,
-            axisProperties.get_fontsize(),
-            axisProperties.get_xcolor_rgb(),
-            axisProperties.get_xtick().matrix_value(),
-            axisProperties.get_xticklabel().string_vector_value(),
-            axisProperties.get_xminortickvalues().matrix_value(),
-            axisProperties.get_xminortick() == "on",
-            axisProperties.get_tickdir(),
-            axisProperties.get_xticklabelrotation(),
-            axisProperties.get_ticklabelinterpreter(),
-            axisProperties.is_xgrid() || axisProperties.is_xminorgrid()
-          );
-
-          axis(
-            plot["layout"][s]["yaxis"],
-            axisProperties.is_visible(),
-            axisProperties.get_yscale(),
-            axisProperties.get_yaxislocation(),
-            axisProperties.get_ylim().matrix_value(),
-            !axisProperties.ydir_is("reverse"),
-            axisProperties.is_box(),
-            axisProperties.get_linewidth() + 1,
-            axisProperties.get_fontsize(),
-            axisProperties.get_ycolor_rgb(),
-            axisProperties.get_ytick().matrix_value(),
-            axisProperties.get_yticklabel().string_vector_value(),
-            axisProperties.get_yminortickvalues().matrix_value(),
-            axisProperties.get_yminortick() == "on",
-            axisProperties.get_tickdir(),
-            axisProperties.get_yticklabelrotation(),
-            axisProperties.get_ticklabelinterpreter(),
-            axisProperties.is_ygrid() || axisProperties.is_yminorgrid()
-          );
-
-          axis(
-            plot["layout"][s]["zaxis"],
-            axisProperties.is_visible(),
-            axisProperties.get_zscale(),
-            "none",
-            axisProperties.get_zlim().matrix_value(),
-            axisProperties.zdir_is("reverse"),
-            axisProperties.is_box(),
-            axisProperties.get_linewidth() + 1,
-            axisProperties.get_fontsize(),
-            axisProperties.get_zcolor_rgb(),
-            axisProperties.get_ztick().matrix_value(),
-            axisProperties.get_zticklabel().string_vector_value(),
-            axisProperties.get_zminortickvalues().matrix_value(),
-            axisProperties.get_zminortick() == "on",
-            axisProperties.get_tickdir(),
-            axisProperties.get_zticklabelrotation(),
-            axisProperties.get_ticklabelinterpreter(),
-            axisProperties.is_zgrid() || axisProperties.is_zminorgrid()
-          );
-
-          // Adding labels
-          if (xlabel && xlabel.isa("text"))
-            text(
-              plot["layout"][s]["xaxis"]["title"],
-              xlabelProperties.get_string().string_value(),
-              xlabelProperties.get_interpreter(),
-              xlabelProperties.get_color_rgb(),
-              xlabelProperties.get_fontsize()
-            );
-
-          if (ylabel && ylabel.isa("text"))
-            text(
-              plot["layout"][s]["yaxis"]["title"],
-              ylabelProperties.get_string().string_value(),
-              ylabelProperties.get_interpreter(),
-              ylabelProperties.get_color_rgb(),
-              ylabelProperties.get_fontsize()
-            );
-
-          if (zlabel && zlabel.isa("text"))
-            text(
-              plot["layout"][s]["zaxis"]["title"],
-              zlabelProperties.get_string().string_value(),
-              zlabelProperties.get_interpreter(),
-              zlabelProperties.get_color_rgb(),
-              zlabelProperties.get_fontsize()
-            );
-
-          // Set projection type
-          plot["layout"][s]["camera"]["projection"]["type"] = axisProperties.get_projection();
-        }
-
-        // Axes contain line, text, patch, surface, image, and light objects.
-        for (auto d : children(ax))
-        {
-          unsigned long dNumber = plot["data"].size();
-
-          if (d.isa("line"))
-          {
-            auto& lineProperties = dynamic_cast<oc::line::properties&>(d.get_properties());
-            std::string type;
-
-            // Set corresponding type and axes/scene
-            if (!ax.get("tag").isempty() && ax.get("tag").string_value() == "polaraxes")
-            {
-              type = "scatterpolar";
-
-              plot["data"][dNumber]["subplot"] = "polar" + axNumber;
-            }
-            else if (axisProperties.get_is2D())
-            {
-              type = "scatter";
-
-              plot["data"][dNumber]["xaxis"] = "x" + axNumber;
-              plot["data"][dNumber]["yaxis"] = "y" + axNumber;
-            }
-            else
-            {
-              type = "scatter3d";
-
-              plot["data"][dNumber]["scene"] = "scene" + axNumber;
-            }
-
-            line(
-              plot["data"][dNumber],
-              lineProperties.is_visible(),
-              type,
-              lineProperties.get_xdata().matrix_value(),
-              lineProperties.get_ydata().matrix_value(),
-              lineProperties.get_zdata().matrix_value(),
-              lineProperties.get_marker(),
-              lineProperties.get_linestyle(),
-              lineProperties.get_color_rgb(),
-              lineProperties.get_linewidth(),
-              lineProperties.get_markersize()
-            );
-
-            if (isLegend)
-              plot["data"][dNumber]["hoverinfo"] = "none";
-
-            setLegendVisibility(plot["data"][dNumber], lineProperties.get_displayname());
-          }
-          else if (d.isa("surface"))
-          {
-            auto& surfaceProperties = dynamic_cast<oc::surface::properties&>(d.get_properties());
-
-            if (axisProperties.get_is2D())
-            {
-#ifndef NDEBUG
-              std::clog << "2d surface not implemented" << std::endl;
-#endif
-            }
-            else
-            {
-              plot["data"][dNumber]["scene"] = "scene" + axNumber;
-
-              surface(
-                plot["data"][dNumber],
-                surfaceProperties.is_visible(),
-                surfaceProperties.get_xdata().matrix_value(),
-                surfaceProperties.get_ydata().matrix_value(),
-                surfaceProperties.get_zdata().matrix_value(),
-                surfaceProperties.get_cdata().matrix_value(),
-                axisProperties.get("colormap").matrix_value(),
-                surfaceProperties.get_clim().matrix_value()
-              );
-
-              setLegendVisibility(plot["data"][dNumber], surfaceProperties.get_displayname());
-            }
-          }
-          else if (d.isa("text"))
-          {
-            auto& textProperties = dynamic_cast<oc::text::properties&>(d.get_properties());
-
-            Matrix textPosition = textProperties.get_position().matrix_value();
-
-            unsigned long aNumber = plot["layout"]["annotations"].size();
-
-            plot["layout"]["annotations"][aNumber]["showarrow"] = false;
-
-            plot["layout"]["annotations"][aNumber]["xref"] = "x" + axNumber;
-            plot["layout"]["annotations"][aNumber]["yref"] = "y" + axNumber;
-
-            plot["layout"]["annotations"][aNumber]["x"] = textPosition(0);
-            plot["layout"]["annotations"][aNumber]["y"] = textPosition(1);
-
-            plot["layout"]["annotations"][aNumber]["xanchor"] =
-              textProperties.get_horizontalalignment();
-
-            std::string valign = textProperties.get_verticalalignment();
-
-            if (valign == "top" || valign == "cap")
-              plot["layout"]["annotations"][aNumber]["yanchor"] = "top";
-            else if (valign == "middle")
-              plot["layout"]["annotations"][aNumber]["yanchor"] = "middle";
-            else if (valign == "baseline" || valign == "bottom")
-              plot["layout"]["annotations"][aNumber]["yanchor"] = "bottom";
-
-            text(
-              plot["layout"]["annotations"][aNumber],
-              textProperties.get_string().string_value(),
-              textProperties.get_interpreter(),
-              textProperties.get_color_rgb(),
-              textProperties.get_fontsize()
-            );
-
-#ifndef NDEBUG
-            std::clog << textProperties.get_extent().matrix_value() << std::endl;
-#endif
-          }
-          else if (d.isa("hggroup"))
-          {
-            auto components = children(d);
-            auto& hggroupProperties = dynamic_cast<oc::hggroup::properties&>(d.get_properties());
-
-            switch (components.size())
-            {
-            case 2:
-              // We suppose that a line+line hggroup is a stem
-              if (components[0].isa("line") && components[1].isa("line"))
-              {
-                auto& lineProperties =
-                  dynamic_cast<oc::line::properties&>(components[0].get_properties());
-                std::string type;
-
-                if (axisProperties.get_is2D())
-                {
-                  type = "scatter";
-
-                  plot["data"][dNumber]["xaxis"] = "x" + axNumber;
-                  plot["data"][dNumber]["yaxis"] = "y" + axNumber;
-                }
-                else
-                {
-                  type = "scatter3d";
-
-                  plot["data"][dNumber]["scene"] = "scene" + axNumber;
-                }
-
-                line(
-                  plot["data"][dNumber],
-                  hggroupProperties.is_visible(),
-                  type,
-                  lineProperties.get_xdata().matrix_value(),
-                  lineProperties.get_ydata().matrix_value(),
-                  lineProperties.get_zdata().matrix_value(),
-                  hggroupProperties.get("marker").string_value(),
-                  hggroupProperties.get("linestyle").string_value(),
-                  hggroupProperties.get("color").matrix_value(),
-                  hggroupProperties.get("linewidth").double_value(),
-                  hggroupProperties.get("markersize").double_value()
-                );
-
-                // Fix markers: by default markers would be
-                // visible also on the bottom, so we make them
-                // transparent
-                std::string tempColor = plot["data"][dNumber]["line"]["color"];
-                std::string tempMarkerColor = plot["data"][dNumber]["marker"]["color"];
-
-                plot["data"][dNumber]["marker"]["line"]["color"] = {};
-                plot["data"][dNumber]["marker"]["color"] = {};
-
-                for (size_t i = 0; i < plot["data"][dNumber]["x"].size(); i += 3)
-                {
-                  plot["data"][dNumber]["marker"]["line"]["color"][i] = "rgba(0,0,0,0)";
-                  plot["data"][dNumber]["marker"]["line"]["color"][i + 1] = tempColor;
-                  plot["data"][dNumber]["marker"]["line"]["color"][i + 2] = "rgba(0,0,0,0)";
-
-                  plot["data"][dNumber]["marker"]["color"][i] = "rgba(0,0,0,0)";
-                  plot["data"][dNumber]["marker"]["color"][i + 1] = tempMarkerColor;
-                  plot["data"][dNumber]["marker"]["color"][i + 2] = "rgba(0,0,0,0)";
-                }
-              }
-              break;
-            default:
-              break;
-            }
-
-            setLegendVisibility(plot["data"][dNumber], hggroupProperties.get_displayname());
-          }
-        }
-      }
-    // Show the newly created plot
-
-    nl::json data, tran;
-
-    data["application/vnd.plotly.v1+json"] = plot;
-    tran["display_id"] = id;
-
-    dynamic_cast<xoctave_interpreter&>(xeus::get_interpreter())
-      .update_display_data(data, nl::json::object(), tran);
-  }
-}
-
-void plotly_graphics_toolkit::show_figure(oc::graphics_object const& go) const
-{
-  int id = getPlotStream(go);
-
-  nl::json tran;
-  tran["display_id"] = id;
-  dynamic_cast<xoctave_interpreter&>(xeus::get_interpreter())
-    .display_data(nl::json::object(), nl::json::object(), tran);
-}
-
-std::string plotly_graphics_toolkit::getObjectNumber(
+/**
+ * Get the string suffix to append to plotly objects (eg xaxis, yaxis, scene
+ * polar), when more than one is present. The suffix for the first one is
+ * always "" (empty), then 1,2,3...
+ */
+std::string get_object_number(
   octave::graphics_object const& o, std::map<std::string, std::vector<unsigned long>>& ids
-) const
+)
 {
   double h = o.get_handle().value();
   unsigned long id = *reinterpret_cast<unsigned long*>(&h);
@@ -586,23 +124,26 @@ std::string plotly_graphics_toolkit::getObjectNumber(
   }
 }
 
-std::vector<oc::graphics_object>
-plotly_graphics_toolkit::children(oc::graphics_object const& go, bool all) const
+/**
+ * Convert a string according to its format
+ */
+std::string convert_text(std::string text, std::string format = "none")
 {
-  Matrix c = all ? go.get_properties().get_all_children() : go.get_properties().get_children();
-  auto len = c.numel();
-  std::vector<oc::graphics_object> ret;
-
-  for (auto i = len - 1; i >= 0; i--)
+  if (format == "latex")
   {
-    ret.push_back(m_interpreter.get_gh_manager().get_object(c(i)));
+    return "$ " + text + " $";
   }
-
-  return ret;
+  else if (format == "tex")
+  {
+    oc::text_parser_tex tex = oc::text_parser_tex();
+    tex_to_html html;
+    tex.parse(text)->accept(html);
+    return html;
+  }
+  else
+    return text;
 }
 
-namespace
-{
 /**
  * Convert an octave color matrix to a css rgb string
  */
@@ -623,26 +164,6 @@ std::string matrix2rgba(Matrix const& color, double const alpha)
 }
 
 /**
- * Convert a string according to its format
- */
-std::string convertText(std::string text, std::string format = "none")
-{
-  if (format == "latex")
-  {
-    return "$ " + text + " $";
-  }
-  else if (format == "tex")
-  {
-    oc::text_parser_tex tex = oc::text_parser_tex();
-    tex_to_html html;
-    tex.parse(text)->accept(html);
-    return html;
-  }
-  else
-    return text;
-}
-
-/**
  * Convert an octave column matrix to a std::vector
  */
 std::vector<double> matrixcol2vec(Matrix const& m)
@@ -656,20 +177,24 @@ std::vector<double> matrixcol2vec(Matrix const& m)
   return out;
 }
 
-}  // namespace
-
-void plotly_graphics_toolkit::text(
+/**
+ * Fill the text properties
+ */
+void fill_text(
   nl::json& obj, std::string text, std::string interpreter, Matrix color, double fontSize
-) const
+)
 {
-  obj["text"] = convertText(text, interpreter);
+  obj["text"] = convert_text(text, interpreter);
 
   // Set color and size
   obj["font"]["color"] = matrix2rgb(color);
   obj["font"]["size"] = fontSize;
 }
 
-void plotly_graphics_toolkit::axis(
+/**
+ * Fill the axis properties
+ */
+void fill_axis(
   nl::json& axis,
   bool visible,
   std::string scale,
@@ -688,9 +213,9 @@ void plotly_graphics_toolkit::axis(
   double tickRotation,
   std::string tickInterpreter,
   bool showGrid,
-  Matrix _gridColor,
-  double gridAlpha
-) const
+  Matrix _gridColor = Matrix(),
+  double gridAlpha = 0
+)
 {
   std::string color = matrix2rgb(_color);
   std::string gridColor = _gridColor.isempty() ? "" : matrix2rgba(_gridColor, gridAlpha);
@@ -755,7 +280,7 @@ void plotly_graphics_toolkit::axis(
       {
         auto index =
           std::distance(ticks.begin(), std::find(ticks.begin(), ticks.end(), allTicks[i]));
-        tickLabels.push_back(convertText(_tickLabels(index), tickInterpreter));
+        tickLabels.push_back(convert_text(_tickLabels(index), tickInterpreter));
       }
       else
         tickLabels.push_back("");
@@ -767,7 +292,7 @@ void plotly_graphics_toolkit::axis(
   {
     for (int i = 0; i < _tickLabels.numel(); i++)
     {
-      tickLabels.push_back(convertText(_tickLabels(i), tickInterpreter));
+      tickLabels.push_back(convert_text(_tickLabels(i), tickInterpreter));
     }
 
     axis["tickvals"] = ticks;
@@ -813,7 +338,10 @@ void plotly_graphics_toolkit::axis(
   axis["spikesides"] = false;
 }
 
-void plotly_graphics_toolkit::polarAxis(nl::json& axis, Matrix _ticks, double fontSize) const
+/**
+ * Fill the polar axis properties
+ */
+void fill_polar_axis(nl::json& axis, Matrix _ticks, double fontSize)
 {
   std::vector<double> tick = matrixcol2vec(_ticks);
 
@@ -822,9 +350,12 @@ void plotly_graphics_toolkit::polarAxis(nl::json& axis, Matrix _ticks, double fo
   axis["size"] = fontSize;
 }
 
-void plotly_graphics_toolkit::legend(
+/**
+ * Fill the legend properties
+ */
+void fill_legend(
   nl::json& legend, Matrix position, bool box, double lineWidth, Matrix backgroundColor
-) const
+)
 {
   // See https://github.com/plotly/plotly.js/issues/1668
   // Position the legend in the right place
@@ -852,7 +383,10 @@ void plotly_graphics_toolkit::legend(
   legend["bgcolor"] = matrix2rgb(backgroundColor);
 }
 
-void plotly_graphics_toolkit::line(
+/**
+ * Fill the line properties
+ */
+void fill_line(
   nl::json& line,
   bool visible,
   std::string type,
@@ -864,7 +398,7 @@ void plotly_graphics_toolkit::line(
   Matrix lineColor,
   double lineWidth,
   double markerSize
-) const
+)
 {
   line["type"] = type;
   line["visibility"] = visible;
@@ -966,7 +500,10 @@ void plotly_graphics_toolkit::line(
   }
 }
 
-void plotly_graphics_toolkit::surface(
+/**
+ * Fill the (3d) surface properties
+ */
+void fill_surface(
   nl::json& surf,
   bool visible,
   Matrix xdata,
@@ -975,7 +512,7 @@ void plotly_graphics_toolkit::surface(
   Matrix cdata,
   Matrix colorMap,
   Matrix clim
-) const
+)
 {
   surf["type"] = "surface";
   surf["visibility"] = visible;
@@ -1041,7 +578,10 @@ void plotly_graphics_toolkit::surface(
   surf["contours"]["z"]["highlightwidth"] = 1;
 }
 
-void plotly_graphics_toolkit::setLegendVisibility(nl::json& data, std::string name) const
+/**
+ * Add a legend entry if needed
+ */
+void set_legend_visibility(nl::json& data, std::string name)
 {
   // Configuring name and visibility in the legend
   if (name != "")
@@ -1054,6 +594,501 @@ void plotly_graphics_toolkit::setLegendVisibility(nl::json& data, std::string na
     data["name"] = "";
     data["showlegend"] = false;
   }
+}
+
+}  // namespace
+
+void plotly_graphics_toolkit::redraw_figure(oc::graphics_object const& go) const
+{
+  int id = getPlotStream(go);
+
+  if (go.isa("figure"))
+  {
+    std::map<std::string, std::vector<unsigned long>> ids;
+    auto& figureProperties =
+      dynamic_cast<oc::figure::properties&>(oc::graphics_object(go).get_properties());
+    Matrix figurePosition = figureProperties.get_position().matrix_value();
+    nl::json plot, output;
+
+    // Setting margins to 0 because octave positions its axes considering
+    // the margins
+    plot["layout"]["margin"]["l"] = 0;
+    plot["layout"]["margin"]["r"] = 0;
+    plot["layout"]["margin"]["b"] = 0;
+    plot["layout"]["margin"]["t"] = 0;
+
+    // Setting width and height properties
+    plot["layout"]["width"] = figurePosition(2);
+    plot["layout"]["height"] = figurePosition(3);
+
+    // Tooltip on the closest point
+    plot["layout"]["hovermode"] = "closest";
+
+    // We draw manually the legend
+    plot["layout"]["showlegend"] = false;
+
+    // Background color
+    plot["layout"]["plot_bgcolor"] = "rgba(0,0,0,0)";
+
+    // Figures contain axes and hggroups (not implemented for now) as children
+    for (auto ax : children(go))
+      if (ax.isa("axes"))
+      {
+        auto& axisProperties = dynamic_cast<oc::axes::properties&>(ax.get_properties());
+#if OCTAVE_MAJOR_VERSION >= 6
+        auto xlabel = m_interpreter.get_gh_manager().get_object(axisProperties.get_xlabel());
+        auto ylabel = m_interpreter.get_gh_manager().get_object(axisProperties.get_ylabel());
+        auto zlabel = m_interpreter.get_gh_manager().get_object(axisProperties.get_ylabel());
+#else
+        auto xlabel = gh_manager::get_object(axisProperties.get_xlabel());
+        auto ylabel = gh_manager::get_object(axisProperties.get_ylabel());
+        auto zlabel = gh_manager::get_object(axisProperties.get_ylabel());
+#endif
+        auto& xlabelProperties = dynamic_cast<oc::text::properties&>(xlabel.get_properties());
+        auto& ylabelProperties = dynamic_cast<oc::text::properties&>(ylabel.get_properties());
+        auto& zlabelProperties = dynamic_cast<oc::text::properties&>(zlabel.get_properties());
+
+        Matrix axisPosition = axisProperties.get_position().matrix_value();
+        std::string axNumber = get_object_number(ax, ids);
+
+        bool isLegend = !ax.get("tag").isempty() && ax.get("tag").string_value() == "legend";
+
+        if (!ax.get("tag").isempty() && ax.get("tag").string_value() == "polaraxes")
+        {
+          std::string p = "polar" + axNumber;
+
+          // Setting domain, which is the position of the axis of the figure
+          // (percentage)
+          plot["layout"][p]["domain"]["x"] = {axisPosition(0), axisPosition(0) + axisPosition(2)};
+          plot["layout"][p]["domain"]["y"] = {axisPosition(1), axisPosition(1) + axisPosition(3)};
+
+          fill_polar_axis(
+            plot["layout"][p]["radialaxis"],
+            axisProperties.get("rtick").matrix_value(),
+            axisProperties.get_fontsize()
+          );
+
+          fill_polar_axis(
+            plot["layout"][p]["angularaxis"],
+            axisProperties.get("ttick").matrix_value(),
+            axisProperties.get_fontsize()
+          );
+        }
+        else if (axisProperties.get_is2D())
+        {
+          std::string x = "xaxis" + axNumber;
+          std::string y = "yaxis" + axNumber;
+
+          // Setting domain, which is the position of the axis of the figure
+          // (percentage)
+          plot["layout"][x]["domain"] = {axisPosition(0), axisPosition(0) + axisPosition(2)};
+          plot["layout"][y]["domain"] = {axisPosition(1), axisPosition(1) + axisPosition(3)};
+
+          fill_axis(
+            plot["layout"][x],
+            axisProperties.is_visible(),
+            axisProperties.get_xscale(),
+            axisProperties.get_xaxislocation(),
+            axisProperties.get_xlim().matrix_value(),
+            axisProperties.xdir_is("reverse"),
+            axisProperties.is_box(),
+            axisProperties.get_linewidth(),
+            axisProperties.get_fontsize(),
+            axisProperties.get_xcolor_rgb(),
+            axisProperties.get_xtick().matrix_value(),
+            axisProperties.get_xticklabel().string_vector_value(),
+            axisProperties.get_xminortickvalues().matrix_value(),
+            axisProperties.get_xminortick() == "on",
+            axisProperties.get_tickdir(),
+            axisProperties.get_xticklabelrotation(),
+            axisProperties.get_ticklabelinterpreter(),
+            axisProperties.is_xgrid() || axisProperties.is_xminorgrid(),
+            axisProperties.get_gridcolor_rgb(),
+            axisProperties.get_gridalpha()
+          );
+
+          fill_axis(
+            plot["layout"][y],
+            axisProperties.is_visible(),
+            axisProperties.get_yscale(),
+            axisProperties.get_yaxislocation(),
+            axisProperties.get_ylim().matrix_value(),
+            axisProperties.ydir_is("reverse"),
+            axisProperties.is_box(),
+            axisProperties.get_linewidth(),
+            axisProperties.get_fontsize(),
+            axisProperties.get_ycolor_rgb(),
+            axisProperties.get_ytick().matrix_value(),
+            axisProperties.get_yticklabel().string_vector_value(),
+            axisProperties.get_yminortickvalues().matrix_value(),
+            axisProperties.get_yminortick() == "on",
+            axisProperties.get_tickdir(),
+            axisProperties.get_yticklabelrotation(),
+            axisProperties.get_ticklabelinterpreter(),
+            axisProperties.is_ygrid() || axisProperties.is_yminorgrid(),
+            axisProperties.get_gridcolor_rgb(),
+            axisProperties.get_gridalpha()
+          );
+
+          if (xlabel && xlabel.isa("text"))
+            fill_text(
+              plot["layout"][x]["title"],
+              xlabelProperties.get_string().string_value(),
+              xlabelProperties.get_interpreter(),
+              xlabelProperties.get_color_rgb(),
+              xlabelProperties.get_fontsize()
+            );
+
+          if (ylabel && ylabel.isa("text"))
+            fill_text(
+              plot["layout"][y]["title"],
+              ylabelProperties.get_string().string_value(),
+              ylabelProperties.get_interpreter(),
+              ylabelProperties.get_color_rgb(),
+              ylabelProperties.get_fontsize()
+            );
+
+          // Anchoring each axis to the other
+          plot["layout"][x]["anchor"] = "y" + axNumber;
+          plot["layout"][y]["anchor"] = "x" + axNumber;
+
+          if (isLegend)
+          {
+            plot["layout"][x]["showspikes"] = false;
+            plot["layout"][y]["showspikes"] = false;
+            plot["layout"][x]["fixedrange"] = true;
+            plot["layout"][y]["fixedrange"] = true;
+          }
+        }
+        else
+        {
+          std::string s = "scene" + axNumber;
+
+          // Setting domain, which is the position of the axis of the figure
+          // (percentage)
+          plot["layout"][s]["domain"]["x"] = {axisPosition(0), axisPosition(0) + axisPosition(2)};
+          plot["layout"][s]["domain"]["y"] = {axisPosition(1), axisPosition(1) + axisPosition(3)};
+
+          fill_axis(
+            plot["layout"][s]["xaxis"],
+            axisProperties.is_visible(),
+            axisProperties.get_xscale(),
+            axisProperties.get_xaxislocation(),
+            axisProperties.get_xlim().matrix_value(),
+            !axisProperties.xdir_is("reverse"),
+            axisProperties.is_box(),
+            axisProperties.get_linewidth() + 1,
+            axisProperties.get_fontsize(),
+            axisProperties.get_xcolor_rgb(),
+            axisProperties.get_xtick().matrix_value(),
+            axisProperties.get_xticklabel().string_vector_value(),
+            axisProperties.get_xminortickvalues().matrix_value(),
+            axisProperties.get_xminortick() == "on",
+            axisProperties.get_tickdir(),
+            axisProperties.get_xticklabelrotation(),
+            axisProperties.get_ticklabelinterpreter(),
+            axisProperties.is_xgrid() || axisProperties.is_xminorgrid()
+          );
+
+          fill_axis(
+            plot["layout"][s]["yaxis"],
+            axisProperties.is_visible(),
+            axisProperties.get_yscale(),
+            axisProperties.get_yaxislocation(),
+            axisProperties.get_ylim().matrix_value(),
+            !axisProperties.ydir_is("reverse"),
+            axisProperties.is_box(),
+            axisProperties.get_linewidth() + 1,
+            axisProperties.get_fontsize(),
+            axisProperties.get_ycolor_rgb(),
+            axisProperties.get_ytick().matrix_value(),
+            axisProperties.get_yticklabel().string_vector_value(),
+            axisProperties.get_yminortickvalues().matrix_value(),
+            axisProperties.get_yminortick() == "on",
+            axisProperties.get_tickdir(),
+            axisProperties.get_yticklabelrotation(),
+            axisProperties.get_ticklabelinterpreter(),
+            axisProperties.is_ygrid() || axisProperties.is_yminorgrid()
+          );
+
+          fill_axis(
+            plot["layout"][s]["zaxis"],
+            axisProperties.is_visible(),
+            axisProperties.get_zscale(),
+            "none",
+            axisProperties.get_zlim().matrix_value(),
+            axisProperties.zdir_is("reverse"),
+            axisProperties.is_box(),
+            axisProperties.get_linewidth() + 1,
+            axisProperties.get_fontsize(),
+            axisProperties.get_zcolor_rgb(),
+            axisProperties.get_ztick().matrix_value(),
+            axisProperties.get_zticklabel().string_vector_value(),
+            axisProperties.get_zminortickvalues().matrix_value(),
+            axisProperties.get_zminortick() == "on",
+            axisProperties.get_tickdir(),
+            axisProperties.get_zticklabelrotation(),
+            axisProperties.get_ticklabelinterpreter(),
+            axisProperties.is_zgrid() || axisProperties.is_zminorgrid()
+          );
+
+          // Adding labels
+          if (xlabel && xlabel.isa("text"))
+            fill_text(
+              plot["layout"][s]["xaxis"]["title"],
+              xlabelProperties.get_string().string_value(),
+              xlabelProperties.get_interpreter(),
+              xlabelProperties.get_color_rgb(),
+              xlabelProperties.get_fontsize()
+            );
+
+          if (ylabel && ylabel.isa("text"))
+            fill_text(
+              plot["layout"][s]["yaxis"]["title"],
+              ylabelProperties.get_string().string_value(),
+              ylabelProperties.get_interpreter(),
+              ylabelProperties.get_color_rgb(),
+              ylabelProperties.get_fontsize()
+            );
+
+          if (zlabel && zlabel.isa("text"))
+            fill_text(
+              plot["layout"][s]["zaxis"]["title"],
+              zlabelProperties.get_string().string_value(),
+              zlabelProperties.get_interpreter(),
+              zlabelProperties.get_color_rgb(),
+              zlabelProperties.get_fontsize()
+            );
+
+          // Set projection type
+          plot["layout"][s]["camera"]["projection"]["type"] = axisProperties.get_projection();
+        }
+
+        // Axes contain line, text, patch, surface, image, and light objects.
+        for (auto d : children(ax))
+        {
+          unsigned long dNumber = plot["data"].size();
+
+          if (d.isa("line"))
+          {
+            auto& lineProperties = dynamic_cast<oc::line::properties&>(d.get_properties());
+            std::string type;
+
+            // Set corresponding type and axes/scene
+            if (!ax.get("tag").isempty() && ax.get("tag").string_value() == "polaraxes")
+            {
+              type = "scatterpolar";
+
+              plot["data"][dNumber]["subplot"] = "polar" + axNumber;
+            }
+            else if (axisProperties.get_is2D())
+            {
+              type = "scatter";
+
+              plot["data"][dNumber]["xaxis"] = "x" + axNumber;
+              plot["data"][dNumber]["yaxis"] = "y" + axNumber;
+            }
+            else
+            {
+              type = "scatter3d";
+
+              plot["data"][dNumber]["scene"] = "scene" + axNumber;
+            }
+
+            fill_line(
+              plot["data"][dNumber],
+              lineProperties.is_visible(),
+              type,
+              lineProperties.get_xdata().matrix_value(),
+              lineProperties.get_ydata().matrix_value(),
+              lineProperties.get_zdata().matrix_value(),
+              lineProperties.get_marker(),
+              lineProperties.get_linestyle(),
+              lineProperties.get_color_rgb(),
+              lineProperties.get_linewidth(),
+              lineProperties.get_markersize()
+            );
+
+            if (isLegend)
+              plot["data"][dNumber]["hoverinfo"] = "none";
+
+            set_legend_visibility(plot["data"][dNumber], lineProperties.get_displayname());
+          }
+          else if (d.isa("surface"))
+          {
+            auto& surfaceProperties = dynamic_cast<oc::surface::properties&>(d.get_properties());
+
+            if (axisProperties.get_is2D())
+            {
+#ifndef NDEBUG
+              std::clog << "2d surface not implemented" << std::endl;
+#endif
+            }
+            else
+            {
+              plot["data"][dNumber]["scene"] = "scene" + axNumber;
+
+              fill_surface(
+                plot["data"][dNumber],
+                surfaceProperties.is_visible(),
+                surfaceProperties.get_xdata().matrix_value(),
+                surfaceProperties.get_ydata().matrix_value(),
+                surfaceProperties.get_zdata().matrix_value(),
+                surfaceProperties.get_cdata().matrix_value(),
+                axisProperties.get("colormap").matrix_value(),
+                surfaceProperties.get_clim().matrix_value()
+              );
+
+              set_legend_visibility(plot["data"][dNumber], surfaceProperties.get_displayname());
+            }
+          }
+          else if (d.isa("text"))
+          {
+            auto& textProperties = dynamic_cast<oc::text::properties&>(d.get_properties());
+
+            Matrix textPosition = textProperties.get_position().matrix_value();
+
+            unsigned long aNumber = plot["layout"]["annotations"].size();
+
+            plot["layout"]["annotations"][aNumber]["showarrow"] = false;
+
+            plot["layout"]["annotations"][aNumber]["xref"] = "x" + axNumber;
+            plot["layout"]["annotations"][aNumber]["yref"] = "y" + axNumber;
+
+            plot["layout"]["annotations"][aNumber]["x"] = textPosition(0);
+            plot["layout"]["annotations"][aNumber]["y"] = textPosition(1);
+
+            plot["layout"]["annotations"][aNumber]["xanchor"] =
+              textProperties.get_horizontalalignment();
+
+            std::string valign = textProperties.get_verticalalignment();
+
+            if (valign == "top" || valign == "cap")
+              plot["layout"]["annotations"][aNumber]["yanchor"] = "top";
+            else if (valign == "middle")
+              plot["layout"]["annotations"][aNumber]["yanchor"] = "middle";
+            else if (valign == "baseline" || valign == "bottom")
+              plot["layout"]["annotations"][aNumber]["yanchor"] = "bottom";
+
+            fill_text(
+              plot["layout"]["annotations"][aNumber],
+              textProperties.get_string().string_value(),
+              textProperties.get_interpreter(),
+              textProperties.get_color_rgb(),
+              textProperties.get_fontsize()
+            );
+
+#ifndef NDEBUG
+            std::clog << textProperties.get_extent().matrix_value() << std::endl;
+#endif
+          }
+          else if (d.isa("hggroup"))
+          {
+            auto components = children(d);
+            auto& hggroupProperties = dynamic_cast<oc::hggroup::properties&>(d.get_properties());
+
+            switch (components.size())
+            {
+            case 2:
+              // We suppose that a line+line hggroup is a stem
+              if (components[0].isa("line") && components[1].isa("line"))
+              {
+                auto& lineProperties =
+                  dynamic_cast<oc::line::properties&>(components[0].get_properties());
+                std::string type;
+
+                if (axisProperties.get_is2D())
+                {
+                  type = "scatter";
+
+                  plot["data"][dNumber]["xaxis"] = "x" + axNumber;
+                  plot["data"][dNumber]["yaxis"] = "y" + axNumber;
+                }
+                else
+                {
+                  type = "scatter3d";
+
+                  plot["data"][dNumber]["scene"] = "scene" + axNumber;
+                }
+
+                fill_line(
+                  plot["data"][dNumber],
+                  hggroupProperties.is_visible(),
+                  type,
+                  lineProperties.get_xdata().matrix_value(),
+                  lineProperties.get_ydata().matrix_value(),
+                  lineProperties.get_zdata().matrix_value(),
+                  hggroupProperties.get("marker").string_value(),
+                  hggroupProperties.get("linestyle").string_value(),
+                  hggroupProperties.get("color").matrix_value(),
+                  hggroupProperties.get("linewidth").double_value(),
+                  hggroupProperties.get("markersize").double_value()
+                );
+
+                // Fix markers: by default markers would be
+                // visible also on the bottom, so we make them
+                // transparent
+                std::string tempColor = plot["data"][dNumber]["line"]["color"];
+                std::string tempMarkerColor = plot["data"][dNumber]["marker"]["color"];
+
+                plot["data"][dNumber]["marker"]["line"]["color"] = {};
+                plot["data"][dNumber]["marker"]["color"] = {};
+
+                for (size_t i = 0; i < plot["data"][dNumber]["x"].size(); i += 3)
+                {
+                  plot["data"][dNumber]["marker"]["line"]["color"][i] = "rgba(0,0,0,0)";
+                  plot["data"][dNumber]["marker"]["line"]["color"][i + 1] = tempColor;
+                  plot["data"][dNumber]["marker"]["line"]["color"][i + 2] = "rgba(0,0,0,0)";
+
+                  plot["data"][dNumber]["marker"]["color"][i] = "rgba(0,0,0,0)";
+                  plot["data"][dNumber]["marker"]["color"][i + 1] = tempMarkerColor;
+                  plot["data"][dNumber]["marker"]["color"][i + 2] = "rgba(0,0,0,0)";
+                }
+              }
+              break;
+            default:
+              break;
+            }
+
+            set_legend_visibility(plot["data"][dNumber], hggroupProperties.get_displayname());
+          }
+        }
+      }
+    // Show the newly created plot
+
+    nl::json data, tran;
+
+    data["application/vnd.plotly.v1+json"] = plot;
+    tran["display_id"] = id;
+
+    dynamic_cast<xoctave_interpreter&>(xeus::get_interpreter())
+      .update_display_data(data, nl::json::object(), tran);
+  }
+}
+
+void plotly_graphics_toolkit::show_figure(oc::graphics_object const& go) const
+{
+  int id = getPlotStream(go);
+
+  nl::json tran;
+  tran["display_id"] = id;
+  dynamic_cast<xoctave_interpreter&>(xeus::get_interpreter())
+    .display_data(nl::json::object(), nl::json::object(), tran);
+}
+
+std::vector<oc::graphics_object>
+plotly_graphics_toolkit::children(oc::graphics_object const& go, bool all) const
+{
+  Matrix c = all ? go.get_properties().get_all_children() : go.get_properties().get_children();
+  auto len = c.numel();
+  std::vector<oc::graphics_object> ret;
+
+  for (auto i = len - 1; i >= 0; i--)
+  {
+    ret.push_back(m_interpreter.get_gh_manager().get_object(c(i)));
+  }
+
+  return ret;
 }
 
 }  // namespace xeus_octave
