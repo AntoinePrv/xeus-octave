@@ -49,7 +49,8 @@ octave_value_list display_data(octave_value_list const& args, int /*nargout*/)
   {
     auto v = d.contents(value.second);
     if (value.first == "application/json")
-      data[value.first] = nlohmann::json::parse(v(0).xstring_value("DATA contents must be strings"));
+      data[value.first] =
+        nlohmann::json::parse(v(0).xstring_value("DATA contents must be strings"));
     else
       data[value.first] = v(0).xstring_value("DATA contents must be strings");
   }
@@ -67,7 +68,8 @@ octave_value_list display_data(octave_value_list const& args, int /*nargout*/)
     }
   }
 
-  dynamic_cast<xeus_octave::xoctave_interpreter&>(xeus::get_interpreter()).display_data(data, metadata);
+  dynamic_cast<xeus_octave::xoctave_interpreter&>(xeus::get_interpreter())
+    .display_data(data, metadata);
 
   return ovl();
 }
@@ -118,7 +120,9 @@ octave_value_list matrix_to_html(octave_value_list const& args, int /*nargout*/)
     {
       t << "<td>";
       if (type == "bool matrix")
-        t << (m(r, c) > 0 ? "<span style='color: green;'>T</span>" : "<span style='color: red;'>F</span>");
+        t
+          << (m(r, c) > 0 ? "<span style='color: green;'>T</span>"
+                          : "<span style='color: red;'>F</span>");
       else if (type == "complex matrix")
         t << cx(r, c).real() << "<br>" << cx(r, c).imag() << "<i>i</i>";
       else
@@ -203,10 +207,13 @@ void register_all(octave::interpreter& i)
   auto& s = i.get_symbol_table();
 
   auto display_data_func = new octave_builtin(display_data, "display_data", __FILE__, "");
-  auto override_path_func = new octave_builtin(override_path, "XEUS_OCTAVE_OVERRIDE_PATH", __FILE__, "");
+  auto override_path_func =
+    new octave_builtin(override_path, "XEUS_OCTAVE_OVERRIDE_PATH", __FILE__, "");
   auto matrix_to_html_func = new octave_builtin(matrix_to_html, "__matrix_to_html__", __FILE__, "");
-  auto matrix_to_latex_func = new octave_builtin(matrix_to_latex, "__matrix_to_latex__", __FILE__, "");
-  auto latex_fix_sci_not_func = new octave_builtin(latex_fix_sci_not, "__latex_fix_sci_not__", __FILE__, "");
+  auto matrix_to_latex_func =
+    new octave_builtin(matrix_to_latex, "__matrix_to_latex__", __FILE__, "");
+  auto latex_fix_sci_not_func =
+    new octave_builtin(latex_fix_sci_not, "__latex_fix_sci_not__", __FILE__, "");
 
   s.install_built_in_function("display_data", display_data_func);
   s.install_built_in_function("XEUS_OCTAVE_OVERRIDE_PATH", override_path_func);

@@ -61,8 +61,10 @@ namespace xeus_octave
 notebook_graphics_toolkit::notebook_graphics_toolkit(oc::interpreter& interpreter) :
   base_graphics_toolkit("notebook"), m_interpreter(interpreter)
 {
-  glfwSetErrorCallback([](int error, char const* description)
-                       { std::clog << "GLFW Error: " << description << " (" << error << ")" << '\n'; });
+  glfwSetErrorCallback(
+    [](int error, char const* description)
+    { std::clog << "GLFW Error: " << description << " (" << error << ")" << '\n'; }
+  );
 
   glfwInitHint(GLFW_COCOA_MENUBAR, GLFW_FALSE);
 
@@ -106,7 +108,8 @@ bool notebook_graphics_toolkit::initialize(oc::graphics_object const& go)
   if (go.isa("figure"))
   {
     // Set the pixel ratio
-    auto& figureProperties = dynamic_cast<oc::figure::properties&>(oc::graphics_object(go).get_properties());
+    auto& figureProperties =
+      dynamic_cast<oc::figure::properties&>(oc::graphics_object(go).get_properties());
     float xscale, yscale;
 
     if (auto* monitor = glfwGetPrimaryMonitor())
@@ -151,7 +154,8 @@ void notebook_graphics_toolkit::redraw_figure(oc::graphics_object const& go) con
 #endif
 
   int id = getPlotStream(go);
-  auto& figureProperties = dynamic_cast<oc::figure::properties&>(oc::graphics_object(go).get_properties());
+  auto& figureProperties =
+    dynamic_cast<oc::figure::properties&>(oc::graphics_object(go).get_properties());
   Matrix figurePosition = figureProperties.get_position().matrix_value();
 
   auto const dpr = figureProperties.get___device_pixel_ratio__();

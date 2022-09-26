@@ -20,12 +20,15 @@
 #define XEUS_OCTAVE_STRINGIFY(a) XEUS_OCTAVE_STRINGIFY_IMPL(a)
 #define XEUS_OCTAVE_STRINGIFY_IMPL(a) #a
 
-#define XEUS_OCTAVE_VERSION                                                                                          \
-  XEUS_OCTAVE_STRINGIFY(XEUS_OCTAVE_CONCATENATE(                                                                     \
-    XEUS_OCTAVE_VERSION_MAJOR,                                                                                       \
-    XEUS_OCTAVE_CONCATENATE(                                                                                         \
-        ., XEUS_OCTAVE_CONCATENATE(XEUS_OCTAVE_VERSION_MINOR, XEUS_OCTAVE_CONCATENATE(., XEUS_OCTAVE_VERSION_PATCH)) \
-    )                                                                                                                \
+#define XEUS_OCTAVE_VERSION                                                                \
+  XEUS_OCTAVE_STRINGIFY(XEUS_OCTAVE_CONCATENATE(                                           \
+    XEUS_OCTAVE_VERSION_MAJOR,                                                             \
+    XEUS_OCTAVE_CONCATENATE(                                                               \
+        .,                                                                                 \
+        XEUS_OCTAVE_CONCATENATE(                                                           \
+          XEUS_OCTAVE_VERSION_MINOR, XEUS_OCTAVE_CONCATENATE(., XEUS_OCTAVE_VERSION_PATCH) \
+        )                                                                                  \
+    )                                                                                      \
   ))
 
 #ifdef _WIN32

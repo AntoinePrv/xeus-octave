@@ -81,7 +81,9 @@ void xoctave_interpreter::update_display_data(nl::json data, nl::json metadata, 
     xinterpreter::update_display_data(data, metadata, transient);
 }
 
-void xoctave_interpreter::publish_execution_result(int execution_count, nl::json data, nl::json metadata)
+void xoctave_interpreter::publish_execution_result(
+  int execution_count, nl::json data, nl::json metadata
+)
 {
   if (!m_silent)
     xinterpreter::publish_execution_result(execution_count, data, metadata);
@@ -167,8 +169,9 @@ nl::json xoctave_interpreter::execute_request_impl(
     auto str_parser = oc::parser(code, interpreter);
 
     // Clear current figure
-    auto& root_figure =
-      dynamic_cast<octave::root_figure::properties&>(interpreter.get_gh_manager().get_object(0).get_properties());
+    auto& root_figure = dynamic_cast<octave::root_figure::properties&>(
+      interpreter.get_gh_manager().get_object(0).get_properties()
+    );
     root_figure.set_currentfigure(octave_value(NAN));
 
     int exit_status = 0;
@@ -295,7 +298,10 @@ void xoctave_interpreter::configure_impl()
 
   // Install version variable
   interpreter.get_symbol_table().install_built_in_function(
-    "XOCTAVE", new octave_builtin([](octave_value_list const&, int) { return ovl(XEUS_OCTAVE_VERSION); }, "XOCTAVE")
+    "XOCTAVE",
+    new octave_builtin(
+      [](octave_value_list const&, int) { return ovl(XEUS_OCTAVE_VERSION); }, "XOCTAVE"
+    )
   );
 }
 
@@ -338,7 +344,8 @@ nl::json xoctave_interpreter::complete_request_impl(std::string const& code, int
   );
 }
 
-nl::json xoctave_interpreter::inspect_request_impl(std::string const& code, int cursor_pos, int /*detail_level*/)
+nl::json xoctave_interpreter::
+  inspect_request_impl(std::string const& code, int cursor_pos, int /*detail_level*/)
 {
   assert(cursor_pos >= 0);
   std::string function = get_symbol(code, static_cast<std::size_t>(cursor_pos));
@@ -435,8 +442,9 @@ nl::json xoctave_interpreter::get_help_for_symbol(std::string const& symbol)
         "style='float:unset;width:unset;font-weight:"
         "unset;margin-left:40px'>"
       );
-      text =
-        std::regex_replace(text, std::regex("<dt(.*?)>"), "<dt $1 style='float:unset;width:unset;margin-left:0px;'>");
+      text = std::regex_replace(
+        text, std::regex("<dt(.*?)>"), "<dt $1 style='float:unset;width:unset;margin-left:0px;'>"
+      );
       auto result = nl::json::object();
       result["text/html"] = text;
       result["application/x-texinfo"] = htext;

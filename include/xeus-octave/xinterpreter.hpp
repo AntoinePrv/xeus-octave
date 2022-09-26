@@ -67,9 +67,12 @@ private:
 public:
 
   void publish_stream(std::string const& name, std::string const& text);
-  void display_data(nl::json data, nl::json metadata = nl::json::object(), nl::json transient = nl::json::object());
-  void
-  update_display_data(nl::json data, nl::json metadata = nl::json::object(), nl::json transient = nl::json::object());
+  void display_data(
+    nl::json data, nl::json metadata = nl::json::object(), nl::json transient = nl::json::object()
+  );
+  void update_display_data(
+    nl::json data, nl::json metadata = nl::json::object(), nl::json transient = nl::json::object()
+  );
   void publish_execution_result(int execution_count, nl::json data, nl::json metadata);
   void publish_execution_error(
     std::string const& ename, std::string const& evalue, std::vector<std::string> const& trace_back
@@ -81,9 +84,12 @@ private:
   static std::string get_symbol(std::string const& code, std::size_t cursor_pos);
   nl::json get_help_for_symbol(std::string const& symbol);
 
-  output m_stdout{std::bind(&xoctave_interpreter::publish_stream, this, "stdout", std::placeholders::_1)};
-  output m_stderr{std::bind(&xoctave_interpreter::publish_stream, this, "stderr", std::placeholders::_1)};
-  input m_stdin{std::bind(&xoctave_interpreter::blocking_input_request, this, std::placeholders::_1, false)};
+  output m_stdout{
+    std::bind(&xoctave_interpreter::publish_stream, this, "stdout", std::placeholders::_1)};
+  output m_stderr{
+    std::bind(&xoctave_interpreter::publish_stream, this, "stderr", std::placeholders::_1)};
+  input m_stdin{
+    std::bind(&xoctave_interpreter::blocking_input_request, this, std::placeholders::_1, false)};
 
   bool m_silent, m_allow_stdin;
 };

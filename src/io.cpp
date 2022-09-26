@@ -67,7 +67,10 @@ void input::restore()
   _reset_command_editor();
 }
 
-input::input(std::function<std::string(std::string const&)> callback) : m_callback(std::move(callback)) {}
+input::input(std::function<std::string(std::string const&)> callback) :
+  m_callback(std::move(callback))
+{
+}
 
 std::string input::do_readline(std::string const& prompt, bool&)
 {
@@ -87,7 +90,9 @@ void output::restore(std::ostream& stream, output& buf)
   stream.rdbuf(buf.p_oldbuf);
 }
 
-output::output(std::function<void(std::string const&)> callback) : m_callback(std::move(callback)) {}
+output::output(std::function<void(std::string const&)> callback) : m_callback(std::move(callback))
+{
+}
 
 output::int_type output::overflow(output::int_type c)
 {

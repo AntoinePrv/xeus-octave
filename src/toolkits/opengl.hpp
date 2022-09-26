@@ -59,7 +59,13 @@ public:
   virtual void glBindTexture(GLenum target, GLuint texture) { ::glBindTexture(target, texture); }
 
   virtual void glBitmap(
-    GLsizei width, GLsizei height, GLfloat xorig, GLfloat yorig, GLfloat xmove, GLfloat ymove, GLubyte const* bitmap
+    GLsizei width,
+    GLsizei height,
+    GLfloat xorig,
+    GLfloat yorig,
+    GLfloat xmove,
+    GLfloat ymove,
+    GLubyte const* bitmap
   )
   {
     ::glBitmap(width, height, xorig, yorig, xmove, ymove, bitmap);
@@ -76,11 +82,17 @@ public:
 
   virtual void glClear(GLbitfield mask) { ::glClear(mask); }
 
-  virtual void glClipPlane(GLenum plane, GLdouble const* equation) { ::glClipPlane(plane, equation); }
+  virtual void glClipPlane(GLenum plane, GLdouble const* equation)
+  {
+    ::glClipPlane(plane, equation);
+  }
 
   virtual void glColor3dv(GLdouble const* v) { ::glColor3dv(v); }
 
-  virtual void glColor3f(GLfloat red, GLfloat green, GLfloat blue) { ::glColor3f(red, green, blue); }
+  virtual void glColor3f(GLfloat red, GLfloat green, GLfloat blue)
+  {
+    ::glColor3f(red, green, blue);
+  }
 
   virtual void glColor3fv(GLfloat const* v) { ::glColor3fv(v); }
 
@@ -98,13 +110,17 @@ public:
 
   virtual void glDeleteLists(GLuint list, GLsizei range) { ::glDeleteLists(list, range); }
 
-  virtual void glDeleteTextures(GLsizei n, GLuint const* textures) { ::glDeleteTextures(n, textures); }
+  virtual void glDeleteTextures(GLsizei n, GLuint const* textures)
+  {
+    ::glDeleteTextures(n, textures);
+  }
 
   virtual void glDepthFunc(GLenum func) { ::glDepthFunc(func); }
 
   virtual void glDisable(GLenum cap) { ::glDisable(cap); }
 
-  virtual void glDrawPixels(GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid const* pixels)
+  virtual void
+  glDrawPixels(GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid const* pixels)
   {
     ::glDrawPixels(width, height, format, type, pixels);
   }
@@ -141,7 +157,10 @@ public:
 
   virtual GLboolean glIsEnabled(GLenum cap) { return ::glIsEnabled(cap); }
 
-  virtual void glLightfv(GLenum light, GLenum pname, GLfloat const* params) { ::glLightfv(light, pname, params); }
+  virtual void glLightfv(GLenum light, GLenum pname, GLfloat const* params)
+  {
+    ::glLightfv(light, pname, params);
+  }
 
   virtual void glLineStipple(GLint factor, GLushort pattern) { ::glLineStipple(factor, pattern); }
 
@@ -149,9 +168,15 @@ public:
 
   virtual void glLoadIdentity(void) { ::glLoadIdentity(); }
 
-  virtual void glMaterialf(GLenum face, GLenum pname, GLfloat param) { ::glMaterialf(face, pname, param); }
+  virtual void glMaterialf(GLenum face, GLenum pname, GLfloat param)
+  {
+    ::glMaterialf(face, pname, param);
+  }
 
-  virtual void glMaterialfv(GLenum face, GLenum pname, GLfloat const* params) { ::glMaterialfv(face, pname, params); }
+  virtual void glMaterialfv(GLenum face, GLenum pname, GLfloat const* params)
+  {
+    ::glMaterialfv(face, pname, params);
+  }
 
   virtual void glMatrixMode(GLenum mode) { ::glMatrixMode(mode); }
 
@@ -163,8 +188,14 @@ public:
 
   virtual void glNormal3dv(GLdouble const* v) { ::glNormal3dv(v); }
 
-  virtual void
-  glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble near_val, GLdouble far_val)
+  virtual void glOrtho(
+    GLdouble left,
+    GLdouble right,
+    GLdouble bottom,
+    GLdouble top,
+    GLdouble near_val,
+    GLdouble far_val
+  )
   {
     ::glOrtho(left, right, bottom, top, near_val, far_val);
   }
@@ -191,14 +222,19 @@ public:
 
   virtual void glRasterPos3d(GLdouble x, GLdouble y, GLdouble z) { ::glRasterPos3d(x, y, z); }
 
-  virtual void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)
+  virtual void glReadPixels(
+    GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels
+  )
   {
     ::glReadPixels(x, y, width, height, format, type, pixels);
   }
 
   virtual GLint glRenderMode(GLenum mode) { return ::glRenderMode(mode); }
 
-  virtual void glRotated(GLdouble angle, GLdouble x, GLdouble y, GLdouble z) { ::glRotated(angle, x, y, z); }
+  virtual void glRotated(GLdouble angle, GLdouble x, GLdouble y, GLdouble z)
+  {
+    ::glRotated(angle, x, y, z);
+  }
 
   virtual void glScaled(GLdouble x, GLdouble y, GLdouble z) { ::glScaled(x, y, z); }
 
@@ -225,7 +261,10 @@ public:
     ::glTexImage2D(target, level, internalFormat, width, height, border, format, type, pixels);
   }
 
-  virtual void glTexParameteri(GLenum target, GLenum pname, GLint param) { ::glTexParameteri(target, pname, param); }
+  virtual void glTexParameteri(GLenum target, GLenum pname, GLint param)
+  {
+    ::glTexParameteri(target, pname, param);
+  }
 
   virtual void glTranslated(GLdouble x, GLdouble y, GLdouble z) { ::glTranslated(x, y, z); }
 
@@ -237,6 +276,9 @@ public:
 
   virtual void glVertex3dv(GLdouble const* v) { ::glVertex3dv(v); }
 
-  virtual void glViewport(GLint x, GLint y, GLsizei width, GLsizei height) { ::glViewport(x, y, width, height); }
+  virtual void glViewport(GLint x, GLint y, GLsizei width, GLsizei height)
+  {
+    ::glViewport(x, y, width, height);
+  }
 };
 }  // namespace octave

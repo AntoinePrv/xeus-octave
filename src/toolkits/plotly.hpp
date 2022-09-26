@@ -46,7 +46,10 @@ class plotly_graphics_toolkit : public octave::base_graphics_toolkit
 {
 public:
 
-  plotly_graphics_toolkit(octave::interpreter& interp) : base_graphics_toolkit("plotly"), m_interpreter(interp) {}
+  plotly_graphics_toolkit(octave::interpreter& interp) :
+    base_graphics_toolkit("plotly"), m_interpreter(interp)
+  {
+  }
 
   bool is_valid() const override { return true; }
 
@@ -61,18 +64,21 @@ private:
    * polar), when more than one is present. The suffix for the first one is
    * always "" (empty), then 1,2,3...
    */
-  std::string
-  getObjectNumber(octave::graphics_object const& o, std::map<std::string, std::vector<unsigned long>>& ids) const;
+  std::string getObjectNumber(
+    octave::graphics_object const& o, std::map<std::string, std::vector<unsigned long>>& ids
+  ) const;
 
   /**
    * Get a vector of all the children of the @go octave::graphics_object
    */
-  std::vector<octave::graphics_object> children(octave::graphics_object const& go, bool all = false) const;
+  std::vector<octave::graphics_object>
+  children(octave::graphics_object const& go, bool all = false) const;
 
   /**
    * Fill the text properties
    */
-  void text(nl::json& obj, std::string text, std::string interpreter, Matrix color, double fontSize) const;
+  void text(nl::json& obj, std::string text, std::string interpreter, Matrix color, double fontSize)
+    const;
 
   /**
    * Fill the axis properties
@@ -108,7 +114,8 @@ private:
   /**
    * Fill the legend properties
    */
-  void legend(nl::json& legend, Matrix position, bool box, double lineWidth, Matrix backgroundColor) const;
+  void legend(nl::json& legend, Matrix position, bool box, double lineWidth, Matrix backgroundColor)
+    const;
 
   /**
    * Fill the line properties
@@ -131,7 +138,14 @@ private:
    * Fill the (3d) surface properties
    */
   void surface(
-    nl::json& surf, bool visible, Matrix xdata, Matrix ydata, Matrix zdata, Matrix cdata, Matrix colorMap, Matrix clim
+    nl::json& surf,
+    bool visible,
+    Matrix xdata,
+    Matrix ydata,
+    Matrix zdata,
+    Matrix cdata,
+    Matrix colorMap,
+    Matrix clim
   ) const;
 
   /**
